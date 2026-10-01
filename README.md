@@ -13,6 +13,13 @@
 
 - [Overview](#overview)
 - [Key features](#key-features)
+- [Installation](#installation)
+  - [Requirements](#requirements)
+  - [Clone and install dependencies](#clone-and-install-dependencies)
+  - [Local model services](#local-model-services)
+  - [Optional service integrations](#optional-service-integrations)
+- [Usage](#usage)
+- [CLI commands](#cli-commands)
 - [Architecture](#architecture)
 - [Request lifecycle](#request-lifecycle)
 - [Components](#components)
@@ -23,8 +30,6 @@
 - [Context, memory and observability](#context-memory-and-observability)
 - [Routing experiments](#routing-experiments)
 - [Project structure](#project-structure)
-- [Getting started](#getting-started)
-- [CLI commands](#cli-commands)
 - [Extending JARVIS](#extending-jarvis)
 - [Design decisions](#design-decisions)
 
@@ -55,6 +60,183 @@ The supervisor contains **no** Jira or Splunk code. Service-specific logic lives
 - **Context compaction.** Long sessions are kept within the model's window by summarizing older turns and retaining recent ones.
 - **Per-run observability.** Every run gets an ID, timings, routing decisions, model selections and compaction events, all logged for after-the-fact inspection.
 - **Runtime controls from the prompt.** Dry-run mode, a command queue, undo for reversible operations, background jobs, and scoped persistent memory, all driven by slash commands (see [CLI commands](#cli-commands)).
+
+## Installation
+
+### Requirements
+
+JARVIS is designed to run locally from a Linux terminal or WSL2 environment.
+
+You need:
+
+- Python 3.10+
+- Git
+- LM Studio with an OpenAI-compatible API server
+- A local `qwen/qwen3-1.7b` model in LM Studio for routing and safety classification
+- LiteLLM running locally with the larger models used by JARVIS
+- Optional: access to Jira and Splunk if you want to use the included Jira and Splunk agents
+
+JARVIS's Python dependencies are listed in `requirements.txt`.
+
+### Clone and install dependencies
+
+Clone the repository:
+
+```bash
+git clone https://github.com/Hamzeh05/Jarvis-cli.git
+cd Jarvis-cli
+```
+
+Create and activate a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install the Python dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+### Local model services
+
+JARVIS uses two local OpenAI-compatible model endpoints. `pip install` alone is not enough: both services must be running before you start the CLI.
+
+#### 1. LM Studio
+
+Install and run LM Studio, load:
+
+```text
+qwen/qwen3-1.7b
+```
+
+Enable the OpenAI-compatible local server.
+
+The server address is set by `LM_STUDIO_URL` in `harness/config.py`. Point it at your own LM Studio server, for example:
+
+```text
+http://localhost:1234/v1
+```
+
+#### 2. LiteLLM
+
+Run LiteLLM locally and configure it to expose the models registered in:
+
+```text
+harness/model_registry.py
+```
+
+The server address is set by `LITELLM_URL` in `harness/config.py`. Point it at your own LiteLLM server, for example:
+
+```text
+http://localhost:4000/v1
+```
+
+The registered models are:
+
+```text
+gemma4-31b
+gemma4-31b-thinking
+qwen3-35b
+qwen3-35b-thinking
+```
+
+LiteLLM authentication is optional. If your server requires an API key, set:
+
+```bash
+export LITELLM_API_KEY="your-key"
+```
+
+### Optional service integrations
+
+The repository includes Jira and Splunk specialist agents.
+
+These integrations require access to the corresponding services and their credentials. They are not required if you only want to use the core JARVIS CLI and local model orchestration.
+
+## Usage
+
+With the virtual environment activated and the local model services running:
+
+```bash
+python taskrun.py
+```
+
+JARVIS will start its interactive terminal interface.
+
+Use:
+
+```text
+/models
+```
+
+to see the registered models, and:
+
+```text
+/help
+```
+
+to see the available CLI commands (see also [CLI commands](#cli-commands)).
+
+### Running the tests
+
+Run the main project test suite with:
+
+```bash
+pytest tests/
+```
+
+The root-level routing experiment files are separate from the main test suite.
+
+## CLI commands
+
+The interactive shell exposes slash commands for controlling the harness at runtime. Type `/help` to list them.
+
+**General**
+
+| Command | Description |
+|---|---|
+| `/help` | Show all commands |
+| `/status` | Show current TaskRun status |
+| `/clear` | Clear the terminal screen |
+| `/exit` | Exit TaskRun |
+
+**Models**
+
+| Command | Description |
+|---|---|
+| `/models` | List registered models with provider, description and capabilities |
+| `/model` | Show model configuration |
+| `/model <model>` | Manually select a model |
+| `/model_change on` | Enable automatic model selection |
+| `/model_change off` | Disable automatic model selection |
+
+**Execution control**
+
+| Command | Description |
+|---|---|
+| `/dryrun on` / `/dryrun off` | Enable or disable dry-run mode |
+| `/queue on` / `/queue off` | Enable or disable command queue mode |
+| `/queue` | Show queued commands |
+| `/undo` | Undo the last reversible operation |
+
+**Memory**
+
+| Command | Description |
+|---|---|
+| `/memory` | Show stored memory |
+| `/memory set <scope> <key> <value>` | Store a memory value |
+| `/memory clear <scope> <key>` | Clear a memory value |
+
+**Background jobs**
+
+| Command | Description |
+|---|---|
+| `/bg <request>` | Run a request in the background |
+| `/jobs` | List background jobs |
+| `/job <id>` | Show background job details |
+| `/cancel <id>` | Cancel a background job |
 
 ## Architecture
 
@@ -320,183 +502,6 @@ Routing quality determines both latency and correctness: a wrong gate decision e
 ├── test_laya_conservative.py # Routing experiment
 └── test_laya_gate.py         # Routing experiment
 ```
-
-## Getting started
-
-### Requirements
-
-JARVIS is designed to run locally from a Linux terminal or WSL2 environment.
-
-You need:
-
-- Python 3.10+
-- Git
-- LM Studio with an OpenAI-compatible API server
-- A local `qwen/qwen3-1.7b` model in LM Studio for routing and safety classification
-- LiteLLM running locally with the larger models used by JARVIS
-- Optional: access to Jira and Splunk if you want to use the included Jira and Splunk agents
-
-JARVIS's Python dependencies are listed in `requirements.txt`.
-
-### Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/Hamzeh05/Jarvis-cli.git
-cd Jarvis-cli
-```
-
-Create and activate a virtual environment:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-Install the Python dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-### Local model services
-
-JARVIS uses two local OpenAI-compatible model endpoints. `pip install` alone is not enough: both services must be running before you start the CLI.
-
-#### 1. LM Studio
-
-Install and run LM Studio, load:
-
-```text
-qwen/qwen3-1.7b
-```
-
-Enable the OpenAI-compatible local server.
-
-The server address is set by `LM_STUDIO_URL` in `harness/config.py`. Point it at your own LM Studio server, for example:
-
-```text
-http://localhost:1234/v1
-```
-
-#### 2. LiteLLM
-
-Run LiteLLM locally and configure it to expose the models registered in:
-
-```text
-harness/model_registry.py
-```
-
-The server address is set by `LITELLM_URL` in `harness/config.py`. Point it at your own LiteLLM server, for example:
-
-```text
-http://localhost:4000/v1
-```
-
-The registered models are:
-
-```text
-gemma4-31b
-gemma4-31b-thinking
-qwen3-35b
-qwen3-35b-thinking
-```
-
-LiteLLM authentication is optional. If your server requires an API key, set:
-
-```bash
-export LITELLM_API_KEY="your-key"
-```
-
-### Run JARVIS
-
-With the virtual environment activated and the local model services running:
-
-```bash
-python taskrun.py
-```
-
-JARVIS will start its interactive terminal interface.
-
-Use:
-
-```text
-/models
-```
-
-to see the registered models, and:
-
-```text
-/help
-```
-
-to see the available CLI commands (see also [CLI commands](#cli-commands)).
-
-### Optional service integrations
-
-The repository includes Jira and Splunk specialist agents.
-
-These integrations require access to the corresponding services and their credentials. They are not required if you only want to use the core JARVIS CLI and local model orchestration.
-
-### Tests
-
-Run the main project test suite with:
-
-```bash
-pytest tests/
-```
-
-The root-level routing experiment files are separate from the main test suite.
-
-## CLI commands
-
-The interactive shell exposes slash commands for controlling the harness at runtime. Type `/help` to list them.
-
-**General**
-
-| Command | Description |
-|---|---|
-| `/help` | Show all commands |
-| `/status` | Show current TaskRun status |
-| `/clear` | Clear the terminal screen |
-| `/exit` | Exit TaskRun |
-
-**Models**
-
-| Command | Description |
-|---|---|
-| `/models` | List registered models with provider, description and capabilities |
-| `/model` | Show model configuration |
-| `/model <model>` | Manually select a model |
-| `/model_change on` | Enable automatic model selection |
-| `/model_change off` | Disable automatic model selection |
-
-**Execution control**
-
-| Command | Description |
-|---|---|
-| `/dryrun on` / `/dryrun off` | Enable or disable dry-run mode |
-| `/queue on` / `/queue off` | Enable or disable command queue mode |
-| `/queue` | Show queued commands |
-| `/undo` | Undo the last reversible operation |
-
-**Memory**
-
-| Command | Description |
-|---|---|
-| `/memory` | Show stored memory |
-| `/memory set <scope> <key> <value>` | Store a memory value |
-| `/memory clear <scope> <key>` | Clear a memory value |
-
-**Background jobs**
-
-| Command | Description |
-|---|---|
-| `/bg <request>` | Run a request in the background |
-| `/jobs` | List background jobs |
-| `/job <id>` | Show background job details |
-| `/cancel <id>` | Cancel a background job |
 
 ## Extending JARVIS
 
