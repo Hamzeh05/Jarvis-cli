@@ -1,10 +1,10 @@
 # JARVIS CLI
 
-**A local-first agent harness for the terminal.** JARVIS classifies each request, routes it to the right specialist agent or computer tool, gates sensitive operations behind policy and approval, and verifies the result before responding, all from a single CLI and running on local models.
+**A local-first agent harness for the terminal.** JARVIS classifies each request, routes it to the right specialist agent or computer tool, gates sensitive operations behind policy and approval, and verifies the result before responding, all from a single CLI. Models come from LM Studio locally or from other providers through LiteLLM.
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![LangGraph](https://img.shields.io/badge/orchestration-LangGraph-1c3c3c)
-![Models](https://img.shields.io/badge/models-LM%20Studio%20(local)-purple)
+![Models](https://img.shields.io/badge/models-LM%20Studio%20%7C%20LiteLLM-purple)
 ![MCP](https://img.shields.io/badge/tools-MCP-orange)
 
 ---
@@ -46,7 +46,7 @@ The supervisor contains **no** Jira or Splunk code. Service-specific logic lives
 - **Request classification and router gate.** Not every prompt is an agent task. A gate in front of the supervisor keeps simple requests from paying the cost of a full agent run.
 - **Supervisor built on LangChain and LangGraph.** Specialist agents are exposed to the supervisor as tools; LangGraph manages agent state and execution flow.
 - **Dynamic agent discovery.** Drop a `*_agent.py` module into the project and `agent_registry.py` picks it up. No supervisor changes, no routing-table edits.
-- **Tiered local models.** Large models handle reasoning and agent execution; a small model handles routing, tool selection and safety classification. Everything is served through LM Studio's OpenAI-compatible API.
+- **Tiered models from multiple sources.** Large models handle reasoning and agent execution; a small model handles routing, tool selection and safety classification. Models come from LM Studio's OpenAI-compatible API for local inference, and from LiteLLM for access to other providers behind a single interface.
 - **Separate MCP server for computer operations.** Computer interaction has a different risk profile from calling a REST API, so it is isolated in `mcp_server.py`.
 - **Policy, safety and approval pipeline.** A local model classifies the operation, policy decides whether it is allowed, requires approval or is rejected, and `ui_bridge.py` handles the approval prompt.
 - **Post-execution verification.** Results are checked against the resulting state before being returned, rather than trusting the tool's own success message.
@@ -145,13 +145,24 @@ sequenceDiagram
 
 ## Model tiering
 
-JARVIS does not treat every model call as the same kind of operation. Models are served locally through **LM Studio's OpenAI-compatible API**, and different parts of the system use different models:
+JARVIS does not treat every model call as the same kind of operation. Models come from two sources, and different parts of the system use different models.
+
+**Model sources**
+
+| Source | Used for |
+|---|---|
+| **LM Studio** (OpenAI-compatible API) | Local inference. Nothing leaves the machine. |
+| **LiteLLM** | Pulling in additional models from other providers through one unified interface. |
+
+**Local models served through LM Studio**
 
 | Model | Role |
 |---|---|
 | `qwen/qwen3.5-9b` | General reasoning and agent execution |
 | `openai/gpt-oss-20b` | General reasoning and agent execution |
 | `qwen/qwen3-1.7b` | Lightweight routing, tool selection and safety classification |
+
+Models available through LiteLLM can be registered the same way and assigned to any task.
 
 The reasoning behind this split: routing and safety checks run on **every** request, so they need to be fast and cheap, and a small model is enough for a narrow classification decision. The larger models are reserved for the work that needs them.
 
@@ -214,7 +225,7 @@ Verification            (harness/verification.py)
 | **Requires approval** | Execution is paused and the user is prompted through `ui_bridge.py`. |
 | **Rejected** | Operation is blocked and not executed. |
 
-Safety classification uses a local model so that sensitive operations can be assessed without sending anything off the machine. Policy is kept as its own module so that the rules for what is allowed can change without touching the classifier or the executor. After execution, `verification.py` checks the resulting state rather than trusting the tool's return value.
+Safety classification can run on a local model, which lets sensitive operations be assessed without sending them off the machine. Policy is kept as its own module so that the rules for what is allowed can change without touching the classifier or the executor. After execution, `verification.py` checks the resulting state rather than trusting the tool's return value.
 
 ## Context, memory and observability
 
@@ -252,7 +263,7 @@ Routing quality determines both latency and correctness: a wrong gate decision e
 │   ├── runner.py             # Request lifecycle, compaction, run tracking
 │   ├── context.py            # Execution context
 │   ├── memory.py             # Conversation / session memory
-│   ├── model_registry.py     # Model definitions and endpoints
+│   ├── model_registry.py     # Model definitions and sources (LM Studio, LiteLLM)
 │   ├── model_selector.py     # Per-task model selection
 │   ├── request_classifier.py # Request classification
 │   ├── router_gate.py        # Agent / no-agent gate
@@ -280,6 +291,7 @@ Routing quality determines both latency and correctness: a wrong gate decision e
 
 - Python 3.10+
 - [LM Studio](https://lmstudio.ai/) running locally with its OpenAI-compatible server enabled, and the models listed above loaded
+- [LiteLLM](https://docs.litellm.ai/) configured, if you want to use models from other providers
 - Access to a Jira instance and a Splunk instance (for the respective agents)
 
 ### Install
@@ -299,6 +311,10 @@ Set the service endpoints and credentials through environment variables (or your
 ```bash
 # Local model server (LM Studio default)
 LLM_BASE_URL=http://localhost:1234/v1
+
+# LiteLLM (optional, for models from other providers)
+LITELLM_BASE_URL=...
+LITELLM_API_KEY=...
 
 # Jira
 JIRA_BASE_URL=https://your-domain.atlassian.net
@@ -354,6 +370,6 @@ Edit `harness/model_registry.py` to register it and `harness/model_selector.py` 
 | **Small model for routing and safety** | These checks run on every request; a narrow decision does not need a large model. |
 | **Policy separated from safety classification** | Classification (what is this operation?) and policy (what do we do about it?) change for different reasons. |
 | **Verify after execution** | A tool reporting success is not the same as the system reaching the intended state. |
-| **Model config separated from execution** | Models can be swapped or added without touching the pipeline. |
+| **Model config separated from execution** | Local (LM Studio) and provider-hosted (LiteLLM) models can be swapped or added without touching the pipeline. |
 | **Compaction instead of full history** | Bounds token usage and latency in long sessions on local models. |
 | **Routing experiments outside the main path** | Lets routing approaches be benchmarked without destabilizing the runtime. |
