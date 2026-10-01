@@ -9,3 +9,6 @@ fastembed
 requests
 PyYAML
 cryptography
+rich
+prompt-toolkit
+pyfiglet
