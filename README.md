@@ -298,6 +298,7 @@ Routing quality determines both latency and correctness: a wrong gate decision e
 │   ├── runner.py             # Request lifecycle, compaction, run tracking
 │   ├── context.py            # Execution context
 │   ├── memory.py             # Conversation / session memory
+│   ├── config.py             # Model endpoint URLs (LM_STUDIO_URL, LITELLM_URL)
 │   ├── model_registry.py     # Model definitions and sources (LM Studio, LiteLLM)
 │   ├── model_selector.py     # Per-task model selection
 │   ├── request_classifier.py # Request classification
@@ -322,58 +323,131 @@ Routing quality determines both latency and correctness: a wrong gate decision e
 
 ## Getting started
 
-### Prerequisites
+### Requirements
+
+JARVIS is designed to run locally from a Linux terminal or WSL2 environment.
+
+You need:
 
 - Python 3.10+
-- [LM Studio](https://lmstudio.ai/) running locally with its OpenAI-compatible server enabled and `qwen3-1.7b` loaded
-- [LiteLLM](https://docs.litellm.ai/) running locally and configured with the Gemma and Qwen models listed above
-- Access to a Jira instance and a Splunk instance (for the respective agents)
+- Git
+- LM Studio with an OpenAI-compatible API server
+- A local `qwen/qwen3-1.7b` model in LM Studio for routing and safety classification
+- LiteLLM running locally with the larger models used by JARVIS
+- Optional: access to Jira and Splunk if you want to use the included Jira and Splunk agents
 
-### Install
+JARVIS's Python dependencies are listed in `requirements.txt`.
+
+### Installation
+
+Clone the repository:
 
 ```bash
-git clone <repo-url>
-cd <repo-name>
-python -m venv .venv
+git clone https://github.com/Hamzeh05/Jarvis-cli.git
+cd Jarvis-cli
+```
+
+Create and activate a virtual environment:
+
+```bash
+python3 -m venv .venv
 source .venv/bin/activate
+```
+
+Install the Python dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
 
-### Configure
+### Local model services
 
-Set the service endpoints and credentials through environment variables (or your `.env` file). The names below are examples; use the ones defined in your configuration.
+JARVIS uses two local OpenAI-compatible model endpoints. `pip install` alone is not enough: both services must be running before you start the CLI.
 
-```bash
-# Local model server (LM Studio default)
-LLM_BASE_URL=http://localhost:1234/v1
+#### 1. LM Studio
 
-# LiteLLM (local)
-LITELLM_BASE_URL=...
-LITELLM_API_KEY=...
+Install and run LM Studio, load:
 
-# Jira
-JIRA_BASE_URL=https://your-domain.atlassian.net
-JIRA_EMAIL=you@example.com
-JIRA_API_TOKEN=...
-
-# Splunk
-SPLUNK_HOST=...
-SPLUNK_TOKEN=...
+```text
+qwen/qwen3-1.7b
 ```
 
-External dependencies are intentionally kept outside the core orchestration logic, so the same harness works regardless of which services are configured.
+Enable the OpenAI-compatible local server.
 
-### Run
+The server address is set by `LM_STUDIO_URL` in `harness/config.py`. Point it at your own LM Studio server, for example:
+
+```text
+http://localhost:1234/v1
+```
+
+#### 2. LiteLLM
+
+Run LiteLLM locally and configure it to expose the models registered in:
+
+```text
+harness/model_registry.py
+```
+
+The server address is set by `LITELLM_URL` in `harness/config.py`. Point it at your own LiteLLM server, for example:
+
+```text
+http://localhost:4000/v1
+```
+
+The registered models are:
+
+```text
+gemma4-31b
+gemma4-31b-thinking
+qwen3-35b
+qwen3-35b-thinking
+```
+
+LiteLLM authentication is optional. If your server requires an API key, set:
+
+```bash
+export LITELLM_API_KEY="your-key"
+```
+
+### Run JARVIS
+
+With the virtual environment activated and the local model services running:
 
 ```bash
 python taskrun.py
 ```
 
-### Test
+JARVIS will start its interactive terminal interface.
+
+Use:
+
+```text
+/models
+```
+
+to see the registered models, and:
+
+```text
+/help
+```
+
+to see the available CLI commands (see also [CLI commands](#cli-commands)).
+
+### Optional service integrations
+
+The repository includes Jira and Splunk specialist agents.
+
+These integrations require access to the corresponding services and their credentials. They are not required if you only want to use the core JARVIS CLI and local model orchestration.
+
+### Tests
+
+Run the main project test suite with:
 
 ```bash
 pytest tests/
 ```
+
+The root-level routing experiment files are separate from the main test suite.
 
 ## CLI commands
 
