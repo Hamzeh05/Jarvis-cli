@@ -24,6 +24,7 @@
 - [Routing experiments](#routing-experiments)
 - [Project structure](#project-structure)
 - [Getting started](#getting-started)
+- [CLI commands](#cli-commands)
 - [Extending JARVIS](#extending-jarvis)
 - [Design decisions](#design-decisions)
 
@@ -53,7 +54,7 @@ The supervisor contains **no** Jira or Splunk code. Service-specific logic lives
 - **Post-execution verification.** Results are checked against the resulting state before being returned, rather than trusting the tool's own success message.
 - **Context compaction.** Long sessions are kept within the model's window by summarizing older turns and retaining recent ones.
 - **Per-run observability.** Every run gets an ID, timings, routing decisions, model selections and compaction events, all logged for after-the-fact inspection.
-- **Queueing and undo** support in the runtime layer.
+- **Runtime controls from the prompt.** Dry-run mode, a command queue, undo for reversible operations, background jobs, and scoped persistent memory, all driven by slash commands (see [CLI commands](#cli-commands)).
 
 ## Architecture
 
@@ -194,6 +195,8 @@ You > /models
       Capabilities: reasoning, complex_tasks, analysis, coding, tools
 ══════════════════════════════════════════════════════════════════════════════
 ```
+
+Automatic model selection can be switched on or off at runtime with `/model_change on|off`, and `/model <name>` pins a specific model manually.
 
 The reasoning behind this split: routing and safety checks run on **every** request, so they need to be fast and cheap, and a small model is enough for a narrow classification decision. The larger models are reserved for the work that needs them.
 
@@ -371,6 +374,55 @@ python taskrun.py
 ```bash
 pytest tests/
 ```
+
+## CLI commands
+
+The interactive shell exposes slash commands for controlling the harness at runtime. Type `/help` to list them.
+
+**General**
+
+| Command | Description |
+|---|---|
+| `/help` | Show all commands |
+| `/status` | Show current TaskRun status |
+| `/clear` | Clear the terminal screen |
+| `/exit` | Exit TaskRun |
+
+**Models**
+
+| Command | Description |
+|---|---|
+| `/models` | List registered models with provider, description and capabilities |
+| `/model` | Show model configuration |
+| `/model <model>` | Manually select a model |
+| `/model_change on` | Enable automatic model selection |
+| `/model_change off` | Disable automatic model selection |
+
+**Execution control**
+
+| Command | Description |
+|---|---|
+| `/dryrun on` / `/dryrun off` | Enable or disable dry-run mode |
+| `/queue on` / `/queue off` | Enable or disable command queue mode |
+| `/queue` | Show queued commands |
+| `/undo` | Undo the last reversible operation |
+
+**Memory**
+
+| Command | Description |
+|---|---|
+| `/memory` | Show stored memory |
+| `/memory set <scope> <key> <value>` | Store a memory value |
+| `/memory clear <scope> <key>` | Clear a memory value |
+
+**Background jobs**
+
+| Command | Description |
+|---|---|
+| `/bg <request>` | Run a request in the background |
+| `/jobs` | List background jobs |
+| `/job <id>` | Show background job details |
+| `/cancel <id>` | Cancel a background job |
 
 ## Extending JARVIS
 
