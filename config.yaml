@@ -1,0 +1,11 @@
+version: v0.3
+listeners:
+- name: http-8899
+  address: 0.0.0.0
+  port: 8899
+  timeout: 300s
+setup:
+  mode: true
+  state: bootstrap
+  created_by: vllm-sr serve
+  created_at: '2026-09-27T09:36:14.834403+00:00'

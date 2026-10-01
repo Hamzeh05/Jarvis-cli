@@ -1,0 +1,11 @@
+langchain
+langchain-core
+langchain-openai
+langgraph
+langchain-mcp-adapters
+mcp
+semantic-router
+fastembed
+requests
+PyYAML
+cryptography

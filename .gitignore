@@ -1,0 +1,39 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs / runtime data
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local model / runtime artifacts
+.vllm-sr/
+
+# Temporary / backup files
+*.bak
+*.tmp
+*~
